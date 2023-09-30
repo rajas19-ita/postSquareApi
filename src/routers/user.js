@@ -4,14 +4,7 @@ const auth = require("../middlewares/auth");
 const upload = require("../middlewares/upload");
 const { v4: uuidv4 } = require("uuid");
 const sharp = require("sharp");
-const fs = require("fs").promises;
-const {
-    ref,
-    uploadBytes,
-    getDownloadURL,
-    deleteObject,
-} = require("firebase/storage");
-const { storage } = require("../firebase");
+const imagekit = require("../config/imageKitConfig");
 
 const userRouter = express.Router();
 
@@ -54,12 +47,17 @@ userRouter.patch(
     auth,
     upload.single("avatar"),
     async (req, res) => {
-        if (req.user.avatarUrl) {
-            const regex = /%2F([^?]+)/;
-            const match = req.user.avatarUrl.match(regex);
-            const deleteRef = ref(storage, `avatar/${match[1]}`);
+        // if (req.user.avatarUrl) {
+        //     const regex = /%2F([^?]+)/;
+        //     const match = req.user.avatarUrl.match(regex);
+        //     const deleteRef = ref(storage, `avatar/${match[1]}`);
 
-            deleteObject(deleteRef);
+        //     deleteObject(deleteRef);
+        // }
+        if (req.user.avatarUrl) {
+            imagekit.deleteFile(req.user.avatarId).catch((error) => {
+                console.log(error);
+            });
         }
 
         const avatarName = uuidv4() + ".webp";
@@ -72,26 +70,43 @@ userRouter.patch(
             .webp({ quality: 75 })
             .toBuffer()
             .then((outputBuffer) => {
-                const metadata = {
-                    contentType: "image/webp",
-                };
-
-                const avatarRef = ref(storage, `avatar/${avatarName}`);
-
-                uploadBytes(avatarRef, outputBuffer, metadata).then(
-                    (snapshot) => {
-                        getDownloadURL(avatarRef)
-                            .then((url) => {
-                                req.user.avatarUrl = url;
-                                return req.user.save();
-                            })
-                            .then(() => {
-                                res.status(200).send({
-                                    avatarUrl: req.user.avatarUrl,
-                                });
-                            });
-                    }
-                );
+                imagekit
+                    .upload({
+                        file: outputBuffer,
+                        fileName: avatarName,
+                        folder: "/avatar",
+                    })
+                    .then((response) => {
+                        req.user.avatarUrl = response.url;
+                        req.user.avatarId = response.fileId;
+                        return req.user.save();
+                    })
+                    .then(() => {
+                        res.status(200).send({
+                            avatarUrl: req.user.avatarUrl,
+                        });
+                    })
+                    .catch((error) => {
+                        console.log(error);
+                    });
+                // const metadata = {
+                //     contentType: "image/webp",
+                // };
+                // const avatarRef = ref(storage, `avatar/${avatarName}`);
+                // uploadBytes(avatarRef, outputBuffer, metadata).then(
+                //     (snapshot) => {
+                //         getDownloadURL(avatarRef)
+                //             .then((url) => {
+                //                 req.user.avatarUrl = url;
+                //                 return req.user.save();
+                //             })
+                //             .then(() => {
+                //                 res.status(200).send({
+                //                     avatarUrl: req.user.avatarUrl,
+                //                 });
+                //             });
+                //     }
+                // );
             });
     },
     (err, req, res, next) => {

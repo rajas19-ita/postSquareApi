@@ -6,8 +6,7 @@ const sharp = require("sharp");
 const { v4: uuidv4 } = require("uuid");
 const auth = require("../middlewares/auth");
 const commentRouter = require("./comment");
-const { ref, uploadBytes, getDownloadURL } = require("firebase/storage");
-const { storage } = require("../firebase");
+const imagekit = require("../config/imageKitConfig");
 
 const postRouter = express.Router();
 
@@ -25,29 +24,51 @@ postRouter.post(
             .webp({ quality: 75 })
             .toBuffer()
             .then((outputBuffer) => {
-                const metadata = {
-                    contentType: "image/webp",
-                };
+                imagekit
+                    .upload({
+                        file: outputBuffer,
+                        fileName: imageName,
+                        folder: "/post_Images",
+                    })
+                    .then((response) => {
+                        const post = new postModel({
+                            caption: req.body.caption,
+                            imageUrl: response.url,
+                            author: req.user._id,
+                            likes: 0,
+                        });
+                        return post.save();
+                    })
+                    .then((post) => {
+                        res.status(201).send(post);
+                    })
+                    .catch((error) => {
+                        console.log(error);
+                    });
 
-                const imageRef = ref(storage, `postImage/${imageName}`);
+                // const metadata = {
+                //     contentType: "image/webp",
+                // };
 
-                uploadBytes(imageRef, outputBuffer, metadata).then(
-                    (snapshot) => {
-                        getDownloadURL(imageRef)
-                            .then((url) => {
-                                const post = new postModel({
-                                    caption: req.body.caption,
-                                    imageUrl: url,
-                                    author: req.user._id,
-                                    likes: 0,
-                                });
-                                return post.save();
-                            })
-                            .then((post) => {
-                                res.status(201).send(post);
-                            });
-                    }
-                );
+                // const imageRef = ref(storage, `postImage/${imageName}`);
+
+                // uploadBytes(imageRef, outputBuffer, metadata).then(
+                //     (snapshot) => {
+                //         getDownloadURL(imageRef)
+                //             .then((url) => {
+                //                 const post = new postModel({
+                //                     caption: req.body.caption,
+                //                     imageUrl: url,
+                //                     author: req.user._id,
+                //                     likes: 0,
+                //                 });
+                //                 return post.save();
+                //             })
+                //             .then((post) => {
+                //                 res.status(201).send(post);
+                //             });
+                //     }
+                // );
             });
     },
     (err, req, res, next) => {
