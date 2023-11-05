@@ -5,8 +5,19 @@ const upload = require("../middlewares/upload");
 const { v4: uuidv4 } = require("uuid");
 const sharp = require("sharp");
 const imagekit = require("../config/imageKitConfig");
+const notificationModel = require("../models/notification");
 
 const userRouter = express.Router();
+
+userRouter.get("/", async (req, res) => {
+    try {
+        const users = await userModel.find({});
+
+        res.status(200).send(users);
+    } catch (e) {
+        res.status(400).send({ err: e.message });
+    }
+});
 
 userRouter.post("/", async (req, res, next) => {
     try {
@@ -14,6 +25,18 @@ userRouter.post("/", async (req, res, next) => {
         await user.save();
         const token = user.generateAuthToken();
         res.status(201).send({ user, token });
+
+        const users = await userModel.find({}, "_id");
+
+        users.forEach(async (user1) => {
+            const notification = new notificationModel({
+                to: user1,
+                from: user._id,
+                type: "new_user",
+            });
+
+            await notification.save();
+        });
     } catch (err) {
         if (err.code === 11000) {
             return res
@@ -47,13 +70,6 @@ userRouter.patch(
     auth,
     upload.single("avatar"),
     async (req, res) => {
-        // if (req.user.avatarUrl) {
-        //     const regex = /%2F([^?]+)/;
-        //     const match = req.user.avatarUrl.match(regex);
-        //     const deleteRef = ref(storage, `avatar/${match[1]}`);
-
-        //     deleteObject(deleteRef);
-        // }
         if (req.user.avatarUrl) {
             imagekit.deleteFile(req.user.avatarId).catch((error) => {
                 console.log(error);
@@ -89,29 +105,31 @@ userRouter.patch(
                     .catch((error) => {
                         console.log(error);
                     });
-                // const metadata = {
-                //     contentType: "image/webp",
-                // };
-                // const avatarRef = ref(storage, `avatar/${avatarName}`);
-                // uploadBytes(avatarRef, outputBuffer, metadata).then(
-                //     (snapshot) => {
-                //         getDownloadURL(avatarRef)
-                //             .then((url) => {
-                //                 req.user.avatarUrl = url;
-                //                 return req.user.save();
-                //             })
-                //             .then(() => {
-                //                 res.status(200).send({
-                //                     avatarUrl: req.user.avatarUrl,
-                //                 });
-                //             });
-                //     }
-                // );
             });
     },
     (err, req, res, next) => {
         res.status(400).send({ err: err.message });
     }
 );
+
+userRouter.get("/:id/notifications", auth, async (req, res) => {
+    try {
+        const timeStamp = req.query.timeStamp
+            ? req.query.timeStamp
+            : Date.now();
+
+        const notifications = await notificationModel
+            .find({
+                to: req.user._id,
+                createdAt: { $lt: timeStamp },
+            })
+            .limit(8)
+            .populate("from", "username avatarUrl");
+
+        res.status(200).send(notifications);
+    } catch (e) {
+        res.status(400).send({ err: e.message });
+    }
+});
 
 module.exports = userRouter;

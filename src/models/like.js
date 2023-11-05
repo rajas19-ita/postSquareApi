@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const likeSchema = new mongoose.Schema(
     {
@@ -18,6 +18,6 @@ const likeSchema = new mongoose.Schema(
 
 likeSchema.index({ postId: 1, userId: 1 }, { unique: true });
 
-const likeModel = mongoose.model('Like', likeSchema);
+const likeModel = mongoose.model("Like", likeSchema);
 
 module.exports = likeModel;

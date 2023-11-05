@@ -1,12 +1,15 @@
 const express = require("express");
 const postModel = require("../models/post");
 const likeModel = require("../models/like");
+
 const upload = require("../middlewares/upload");
 const sharp = require("sharp");
 const { v4: uuidv4 } = require("uuid");
 const auth = require("../middlewares/auth");
 const commentRouter = require("./comment");
 const imagekit = require("../config/imageKitConfig");
+const notificationModel = require("../models/notification");
+const userModel = require("../models/user");
 
 const postRouter = express.Router();
 
@@ -36,39 +39,31 @@ postRouter.post(
                             imageUrl: response.url,
                             author: req.user._id,
                             likes: 0,
+                            aspect: req.body.aspect,
                         });
                         return post.save();
                     })
                     .then((post) => {
                         res.status(201).send(post);
+
+                        userModel.find({}, "_id").then((users) => {
+                            users.forEach((user1) => {
+                                if (!user1.equals(req.user._id)) {
+                                    const notification = new notificationModel({
+                                        to: user1,
+                                        from: req.user._id,
+                                        postId: post._id,
+                                        type: "post",
+                                    });
+
+                                    notification.save();
+                                }
+                            });
+                        });
                     })
                     .catch((error) => {
                         console.log(error);
                     });
-
-                // const metadata = {
-                //     contentType: "image/webp",
-                // };
-
-                // const imageRef = ref(storage, `postImage/${imageName}`);
-
-                // uploadBytes(imageRef, outputBuffer, metadata).then(
-                //     (snapshot) => {
-                //         getDownloadURL(imageRef)
-                //             .then((url) => {
-                //                 const post = new postModel({
-                //                     caption: req.body.caption,
-                //                     imageUrl: url,
-                //                     author: req.user._id,
-                //                     likes: 0,
-                //                 });
-                //                 return post.save();
-                //             })
-                //             .then((post) => {
-                //                 res.status(201).send(post);
-                //             });
-                //     }
-                // );
             });
     },
     (err, req, res, next) => {
@@ -84,7 +79,6 @@ postRouter.get("/", auth, async (req, res) => {
 
         const posts = await postModel
             .find({ createdAt: { $lt: timeStamp } })
-            .sort({ createdAt: -1 })
             .limit(4)
             .populate("author", "avatarUrl username");
 
@@ -129,7 +123,31 @@ postRouter.post("/:id/likes", auth, async (req, res) => {
         post.likes++;
 
         await post.save();
+
         res.status(200).send({ likes: post.likes });
+
+        if (!post.author.equals(req.user._id)) {
+            const arr = req.usersSocket[post.author] || null;
+
+            const notification = new notificationModel({
+                to: post.author,
+                from: req.user._id,
+                postId,
+                type: "like",
+            });
+
+            await notification.save();
+
+            if (arr) {
+                arr.forEach((socketId) =>
+                    req.io.to(socketId).emit("notification", {
+                        username: req.user.username,
+                        postId,
+                        type: "like",
+                    })
+                );
+            }
+        }
     } catch (err) {
         if (err.code === 11000) {
             return res.status(400).send({ err: "Already liked!" });
@@ -161,6 +179,14 @@ postRouter.delete("/:id/likes", auth, async (req, res) => {
         await post.save();
 
         res.status(200).send({ likes: post.likes });
+
+        if (!post.author.equals(req.user._id)) {
+            const notification = await notificationModel.findOneAndDelete({
+                postId,
+                from: req.user._id,
+                type: "like",
+            });
+        }
     } catch (err) {
         res.status(400).send({ err: err.message });
     }
