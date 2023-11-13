@@ -40,20 +40,50 @@ commentRouter.post("/", auth, async (req, res) => {
     }
 });
 
+commentRouter.get("/:id", auth, async (req, res) => {
+    try {
+        const commentId = req.params.id;
+        const comment = await commentModel
+            .findById(commentId)
+            .populate("author", "avatarUrl username");
+
+        if (!comment) {
+            return res.status(404).send("Comment not Found!");
+        }
+
+        res.status(200).send(comment);
+    } catch (e) {
+        res.status(400).send({ err: e.message });
+    }
+});
+
 commentRouter.get("/", auth, async (req, res) => {
     try {
         const postId = req.params.postId;
         const timeStamp = req.query.timeStamp
             ? req.query.timeStamp
             : Date.now();
+        const exceptCommentId = req.query.except || null;
+        var comments = null;
 
-        const comments = await commentModel
-            .find({
-                post: postId,
-                createdAt: { $lt: timeStamp },
-            })
-            .limit(4)
-            .populate("author", "avatarUrl username");
+        if (!exceptCommentId) {
+            comments = await commentModel
+                .find({
+                    post: postId,
+                    createdAt: { $lt: timeStamp },
+                })
+                .limit(4)
+                .populate("author", "avatarUrl username");
+        } else {
+            comments = await commentModel
+                .find({
+                    _id: { $ne: exceptCommentId },
+                    post: postId,
+                    createdAt: { $lt: timeStamp },
+                })
+                .limit(4)
+                .populate("author", "avatarUrl username");
+        }
 
         res.status(200).send(comments);
     } catch (err) {

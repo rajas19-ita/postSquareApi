@@ -71,6 +71,23 @@ postRouter.post(
     }
 );
 
+postRouter.get("/:id", auth, async (req, res) => {
+    try {
+        const postId = req.params.id;
+        const post = await postModel
+            .findById(postId)
+            .populate("author", "avatarUrl username");
+
+        if (!post) {
+            return res.status(404).send("Post not Found!");
+        }
+
+        res.status(200).send(post);
+    } catch (e) {
+        res.status(400).send({ err: e.message });
+    }
+});
+
 postRouter.get("/", auth, async (req, res) => {
     try {
         const timeStamp = req.query.timeStamp

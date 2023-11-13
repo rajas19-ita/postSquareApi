@@ -34,6 +34,10 @@ const userSchema = new mongoose.Schema(
         avatarId: {
             type: String,
         },
+        bio: {
+            type: String,
+            trim: true,
+        },
     },
     {
         timestamps: true,

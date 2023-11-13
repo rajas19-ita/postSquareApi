@@ -11,9 +11,52 @@ const userRouter = express.Router();
 
 userRouter.get("/", async (req, res) => {
     try {
-        const users = await userModel.find({});
+        const exceptUserId = req.query.except || null;
+        const fields = ["username", "email", "avatarUrl", "bio"];
+        const dataF = req.query.dataFields || [];
+        var users = null;
 
-        res.status(200).send(users);
+        const flag = dataF.every((i) => fields.includes(i));
+
+        if (!flag) {
+            return res.status(400).send({ err: "incorrect data fields" });
+        }
+
+        if (exceptUserId) {
+            users = await userModel
+                .find({
+                    _id: { $ne: exceptUserId },
+                })
+                .select(dataF);
+        } else {
+            users = await userModel.find({}).select(dataF);
+        }
+        return res.status(200).send(users);
+    } catch (e) {
+        res.status(400).send({ err: e.message });
+    }
+});
+
+userRouter.get("/:id", async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        const fields = ["username", "email", "avatarUrl", "bio"];
+        const dataF = req.query.dataFields || [];
+
+        const flag = dataF.every((i) => fields.includes(i));
+
+        if (!flag) {
+            return res.status(400).send({ err: "incorrect data fields" });
+        }
+
+        const user = await userModel.findById(userId).select(dataF);
+
+        if (!user) {
+            return res.status(404).send("user not found!");
+        }
+
+        res.status(200).send(user);
     } catch (e) {
         res.status(400).send({ err: e.message });
     }
@@ -21,7 +64,10 @@ userRouter.get("/", async (req, res) => {
 
 userRouter.post("/", async (req, res, next) => {
     try {
-        const user = new userModel(req.body);
+        const user = new userModel({
+            ...req.body,
+            bio: "Discovering PostSquare, one snapshot at a time. 📽️",
+        });
         await user.save();
         const token = user.generateAuthToken();
         res.status(201).send({ user, token });
@@ -62,6 +108,16 @@ userRouter.post("/login", async (req, res, next) => {
         res.status(200).send({ user, token });
     } catch (err) {
         res.status(400).send({ err: err.message });
+    }
+});
+
+userRouter.patch("/me/bio", auth, async (req, res) => {
+    try {
+        req.user.bio = req.body.bio;
+        await req.user.save();
+        res.status(200).send({ bio: req.user.bio });
+    } catch (e) {
+        res.status(400).send({ err: e.message });
     }
 });
 

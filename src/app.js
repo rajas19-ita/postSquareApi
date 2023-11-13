@@ -1,6 +1,7 @@
 const express = require("express");
 require("./db/mongoose");
 const jwt = require("jsonwebtoken");
+const bodyParser = require("body-parser");
 const userModel = require("./models/user");
 const cors = require("cors");
 const http = require("http");
@@ -14,8 +15,8 @@ const app = express();
 
 app.use(cors());
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
     req.io = io;
