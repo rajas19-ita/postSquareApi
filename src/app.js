@@ -13,7 +13,13 @@ const userRouter = require("./routers/user");
 
 const app = express();
 
-app.use(cors());
+app.use(
+    cors({
+        origin: "https://postsquare.netlify.app",
+        methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+        credentials: true, // Enable credentials (cookies, authorization headers, etc.)
+    })
+);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
