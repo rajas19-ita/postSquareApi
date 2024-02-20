@@ -30,8 +30,8 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use("/users", userRouter);
-app.use("/posts", postRouter);
+app.use("/api/users", userRouter);
+app.use("/api/posts", postRouter);
 
 const server = http.createServer(app);
 
