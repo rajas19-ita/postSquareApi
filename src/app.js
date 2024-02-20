@@ -15,9 +15,9 @@ const app = express();
 
 app.use(
     cors({
-        origin: ["https://postsquare.netlify.app", "http://localhost:5173"],
+        origin: "*",
         methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-        credentials: true, // Enable credentials (cookies, authorization headers, etc.)
+        credentials: true,
     })
 );
 
@@ -37,13 +37,11 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     cors: {
-        origin: ["http://localhost:5173", "https://postsquare.netlify.app"],
+        origin: "*",
     },
 });
 
 io.on("connection", async (socket) => {
-    console.log("connection");
-    console.log(socket.id);
     try {
         const token = socket.handshake.query.token;
 
@@ -61,8 +59,6 @@ io.on("connection", async (socket) => {
             arr.push(socket.id);
         }
         socket.on("disconnect", () => {
-            console.log("disconnection");
-            console.log(socket.id);
             const arr = usersSocket[user._id] || null;
             if (!arr) return;
 
@@ -70,8 +66,6 @@ io.on("connection", async (socket) => {
             arr.splice(index, 1);
 
             if (arr.length === 0) delete usersSocket[user._id];
-
-            console.log(usersSocket);
         });
     } catch (err) {
         socket.disconnect();
