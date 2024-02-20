@@ -15,7 +15,7 @@ const app = express();
 
 app.use(
     cors({
-        origin: "https://postsquare.netlify.app",
+        origin: ["https://postsquare.netlify.app", "http://localhost:5173"],
         methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
         credentials: true, // Enable credentials (cookies, authorization headers, etc.)
     })

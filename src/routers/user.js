@@ -97,7 +97,7 @@ userRouter.post("/login", async (req, res, next) => {
     try {
         if (!req.body.email || !req.body.password) {
             const field = req.body.email ? "password" : "email";
-            return new Error(`${field} field is empty...`);
+            throw new Error(`${field} field is empty...`);
         }
         const user = await userModel.findByCredentials(
             req.body.email,
